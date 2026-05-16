@@ -6,15 +6,15 @@ const nodemailer = require("nodemailer");
 const prisma = new PrismaClient();
 
 const transporter = nodemailer.createTransport({
-  host: "smtp.gmail.com", // Jangan gunakan 'service', gunakan 'host' eksplisit
-  port: 465,              // Port aman standar Google
-  secure: true,           // Wajib true untuk port 465
+  host: "smtp.gmail.com",
+  port: 587,            // Ganti ke 587
+  secure: false,        // WAJIB false jika menggunakan port 587
+  requireTLS: true,     // Memaksa koneksi dienkripsi
   auth: {
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASS,
   },
 });
-
 // Cek koneksi email saat server baru menyala
 transporter.verify((error, success) => {
   if (error) {

@@ -6,11 +6,22 @@ const nodemailer = require("nodemailer");
 const prisma = new PrismaClient();
 
 const transporter = nodemailer.createTransport({
-  service: "gmail",
+  host: "smtp.gmail.com", // Jangan gunakan 'service', gunakan 'host' eksplisit
+  port: 465,              // Port aman standar Google
+  secure: true,           // Wajib true untuk port 465
   auth: {
-    user: process.env.EMAIL_USER, // Email pengirim
-    pass: process.env.EMAIL_PASS, // 16 digit App Password
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS,
   },
+});
+
+// Cek koneksi email saat server baru menyala
+transporter.verify((error, success) => {
+  if (error) {
+    console.error("❌ [NODEMAILER ERROR]: Gagal terhubung ke Gmail!", error);
+  } else {
+    console.log("✅ [NODEMAILER READY]: Server siap mengirim email OTP!");
+  }
 });
 
 // REGISTER USER

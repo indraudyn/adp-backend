@@ -10,6 +10,7 @@ const transporter = nodemailer.createTransport({
   port: 587,            // Ganti ke 587
   secure: false,        // WAJIB false jika menggunakan port 587
   requireTLS: true,     // Memaksa koneksi dienkripsi
+  family: 4,
   auth: {
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASS,

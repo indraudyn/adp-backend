@@ -2,28 +2,10 @@ const { PrismaClient } = require("@prisma/client");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const nodemailer = require("nodemailer");
+const axios = require("axios");
 
 const prisma = new PrismaClient();
 
-// Hapus konfigurasi Gmail yang lama, ganti dengan Brevo Port 2525
-const transporter = nodemailer.createTransport({
-  host: "smtp-relay.brevo.com",
-  port: 2525, // <--- Ini adalah jalur rahasia yang lolos dari blokir Railway
-  secure: false, 
-  auth: {
-    user: process.env.EMAIL_USER, // Diambil dari Railway (Email Brevo)
-    pass: process.env.EMAIL_PASS, // Diambil dari Railway (SMTP Key Brevo)
-  },
-});
-
-// Tetap biarkan fungsi verify ini agar kita bisa memantau log-nya
-transporter.verify((error, success) => {
-  if (error) {
-    console.error("❌ [NODEMAILER ERROR]: Gagal terhubung ke Brevo!", error);
-  } else {
-    console.log("✅ [NODEMAILER READY]: Server siap mengirim email OTP via Port 2525!");
-  }
-});
 
 // REGISTER USER
 exports.register = async (req, res) => {
@@ -152,12 +134,32 @@ exports.forgotPassword = async (req, res) => {
       `
     };
 
-    // Eksekusi pengiriman email
-    await transporter.sendMail(mailOptions);
-    res.json({ message: "Kode OTP pemulihan telah dikirim ke email Anda" });
+   const emailData = {
+      sender: {
+        name: "Asisten Asta Dasa Parwa",
+        email: process.env.EMAIL_USER // Email yang terdaftar di Brevo
+      },
+      to: [
+        { email: email, name: user.name }
+      ],
+      subject: "Kode Pemulihan Password - Asta Dasa Parwa",
+      htmlContent: mailOptions.html // Mengambil template HTML buatanmu di atas
+    };
+
+    // [BARU] Eksekusi pengiriman email menggunakan jalur HTTP (API)
+    await axios.post("https://api.brevo.com/v3/smtp/email", emailData, {
+      headers: {
+        "accept": "application/json",
+        "api-key": process.env.BREVO_API_KEY, // Mengambil API Key dari Railway
+        "content-type": "application/json"
+      }
+    });
+
+    res.json({ message: "Kode OTP pemulihan telah dikirim ke email Anda via API" });
 
   } catch (error) {
-    console.error("Error di forgotPassword:", error);
+    // Menangkap error spesifik dari axios jika ada
+    console.error("Error di forgotPassword:", error.response?.data || error.message);
     res.status(500).json({ message: "Gagal mengirim email OTP" });
   }
 };

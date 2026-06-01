@@ -142,10 +142,10 @@ exports.createParwa = async (req, res) => {
       return res.status(403).json({ message: "Akses ditolak: hanya admin" });
     }
 
-    const { book, sub_parva, section, judul, url, isi } = req.body;
+    const { book, sub_parva, section, judul, url, isi, isi_id } = req.body;
 
     const newParwa = await prisma.parwa.create({
-      data: { book, sub_parva, section, judul, url, isi },
+      data: { book, sub_parva, section, judul, url, isi, isi_id },
     });
 
     res.status(201).json({
@@ -166,7 +166,7 @@ exports.updateParwa = async (req, res) => {
     }
 
     const id = parseInt(req.params.id);
-    const { book, sub_parva, section, judul, url, isi } = req.body;
+    const { book, sub_parva, section, judul, url, isi, isi_id } = req.body;
 
     const parwa = await prisma.parwa.findUnique({ where: { id } });
     if (!parwa)
@@ -174,7 +174,7 @@ exports.updateParwa = async (req, res) => {
 
     const updated = await prisma.parwa.update({
       where: { id },
-      data: { book, sub_parva, section, judul, url, isi },
+      data: { book, sub_parva, section, judul, url, isi, isi_id },
     });
 
     res.json({

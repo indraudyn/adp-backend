@@ -142,10 +142,60 @@ exports.createParwa = async (req, res) => {
       return res.status(403).json({ message: "Akses ditolak: hanya admin" });
     }
 
-    const { book, sub_parva, section, judul, url, isi, isi_id } = req.body;
+    const { book, sub_parva, section, judul, url, isi, isi_id, versionId, versionName } = req.body;
+
+    let targetVersionId = versionId ? parseInt(versionId) : null;
+
+    if (!targetVersionId) {
+      let resolvedVerName = versionName;
+      if (!resolvedVerName && judul) {
+        // Try parsing from judul: "{Book} - {Version}, tr. - {Section}"
+        if (judul.includes(", tr.")) {
+          const parts = judul.split(" - ");
+          if (parts.length >= 2) {
+            const verPart = parts[1];
+            const verSubParts = verPart.split(", tr.");
+            resolvedVerName = verSubParts[0].trim();
+          }
+        } else {
+          // Format 2 fallback: "{Book} Sec {Num} - {Version}"
+          const parts = judul.split(" - ");
+          if (parts.length >= 2) {
+            resolvedVerName = parts[parts.length - 1].trim();
+          }
+        }
+      }
+
+      if (resolvedVerName) {
+        let versionRecord = await prisma.version.findUnique({
+          where: { name: resolvedVerName }
+        });
+        if (!versionRecord) {
+          versionRecord = await prisma.version.create({
+            data: { name: resolvedVerName }
+          });
+        }
+        targetVersionId = versionRecord.id;
+      }
+    }
+
+    // Default fallback if no versionId could be resolved
+    if (!targetVersionId) {
+      const firstVersion = await prisma.version.findFirst({ orderBy: { id: "asc" } });
+      targetVersionId = firstVersion ? firstVersion.id : 1;
+    }
 
     const newParwa = await prisma.parwa.create({
-      data: { book, sub_parva, section, judul, url, isi, isi_id },
+      data: { 
+        book, 
+        sub_parva, 
+        section, 
+        judul, 
+        url, 
+        isi, 
+        isi_id,
+        versionId: targetVersionId
+      },
     });
 
     res.status(201).json({
@@ -166,15 +216,57 @@ exports.updateParwa = async (req, res) => {
     }
 
     const id = parseInt(req.params.id);
-    const { book, sub_parva, section, judul, url, isi, isi_id } = req.body;
+    const { book, sub_parva, section, judul, url, isi, isi_id, versionId, versionName } = req.body;
 
     const parwa = await prisma.parwa.findUnique({ where: { id } });
     if (!parwa)
       return res.status(404).json({ message: "Parwa tidak ditemukan" });
 
+    let targetVersionId = versionId ? parseInt(versionId) : parwa.versionId;
+
+    if (!versionId) {
+      let resolvedVerName = versionName;
+      if (!resolvedVerName && judul && judul !== parwa.judul) {
+        if (judul.includes(", tr.")) {
+          const parts = judul.split(" - ");
+          if (parts.length >= 2) {
+            const verPart = parts[1];
+            const verSubParts = verPart.split(", tr.");
+            resolvedVerName = verSubParts[0].trim();
+          }
+        } else {
+          const parts = judul.split(" - ");
+          if (parts.length >= 2) {
+            resolvedVerName = parts[parts.length - 1].trim();
+          }
+        }
+      }
+
+      if (resolvedVerName) {
+        let versionRecord = await prisma.version.findUnique({
+          where: { name: resolvedVerName }
+        });
+        if (!versionRecord) {
+          versionRecord = await prisma.version.create({
+            data: { name: resolvedVerName }
+          });
+        }
+        targetVersionId = versionRecord.id;
+      }
+    }
+
     const updated = await prisma.parwa.update({
       where: { id },
-      data: { book, sub_parva, section, judul, url, isi, isi_id },
+      data: { 
+        book, 
+        sub_parva, 
+        section, 
+        judul, 
+        url, 
+        isi, 
+        isi_id,
+        versionId: targetVersionId
+      },
     });
 
     res.json({

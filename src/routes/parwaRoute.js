@@ -12,6 +12,7 @@ const {
   getContentBySection,
   getVersions,
   getUserUploads,
+  getAdminUploads,
 } = require("../controllers/parwaController");
 const { verifyToken } = require("../middleware/verifyToken");
 
@@ -26,6 +27,7 @@ router.get("/versions", getVersions)
 
 // Authenticated user routes
 router.get("/user/uploads", verifyToken, getUserUploads);
+router.get("/admin/uploads", verifyToken, getAdminUploads);
 router.get("/:id", getParwaById); // GET /api/parwa/:id
 
 // Admin routes

@@ -2,16 +2,19 @@ const { PrismaClient } = require("@prisma/client");
 const prisma = new PrismaClient();
 const { translateText } = require("../utils/translator");
 
-// ✅ GET all Parwa (dengan pagination)
+// ✅ GET all Parwa (dengan pagination - hanya yang approved)
 exports.getAllParwa = async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
     const limit = Math.min(parseInt(req.query.limit) || 10, 100);
     const skip = (page - 1) * limit;
 
+    const filter = { status: "approved" };
+
     const [total, items] = await Promise.all([
-      prisma.parwa.count(),
+      prisma.parwa.count({ where: filter }),
       prisma.parwa.findMany({
+        where: filter,
         skip,
         take: limit,
         orderBy: { createdAt: "desc" },
@@ -23,6 +26,7 @@ exports.getAllParwa = async (req, res) => {
           judul: true,
           url: true,
           isi: true,
+          isi_id: true,
           createdAt: true,
         },
       }),
@@ -388,6 +392,7 @@ exports.getSectionsByBook = async (req, res) => {
     const sections = await prisma.parwa.findMany({
       where: {
         book: bookName,
+        status: "approved", // Only show approved sections to public
         ...versionFilter // Filter berdasarkan buku DAN versi
       },
       distinct: ["section"], 
@@ -430,6 +435,7 @@ exports.getContentBySection = async (req, res) => {
       where: {
         book: bookName,
         section: sectionName,
+        status: "approved", // Only show approved content to public
         ...versionFilter // Filter berdasarkan buku, section, DAN versi
       },
       select: {

@@ -279,13 +279,9 @@ exports.updateParwa = async (req, res) => {
   }
 };
 
-// ✅ DELETE Parwa (Admin only)
+// ✅ DELETE Parwa (Admin and Authenticated Users)
 exports.deleteParwa = async (req, res) => {
   try {
-    if (req.user.role !== "admin") {
-      return res.status(403).json({ message: "Akses ditolak: hanya admin" });
-    }
-
     const id = parseInt(req.params.id);
     const parwa = await prisma.parwa.findUnique({ where: { id } });
     if (!parwa)

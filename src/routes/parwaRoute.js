@@ -11,6 +11,7 @@ const {
   getSectionsByBook,
   getContentBySection,
   getVersions,
+  getUserUploads,
 } = require("../controllers/parwaController");
 const { verifyToken } = require("../middleware/verifyToken");
 
@@ -22,6 +23,9 @@ router.get("/content/:bookName/:sectionName", getContentBySection);
 router.get("/read/:bookName/:sectionName", getContentBySection);
 router.get("/sections/:bookName", getSectionsByBook);
 router.get("/versions", getVersions)
+
+// Authenticated user routes
+router.get("/user/uploads", verifyToken, getUserUploads);
 router.get("/:id", getParwaById); // GET /api/parwa/:id
 
 // Admin routes

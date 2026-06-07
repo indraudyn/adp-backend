@@ -26,10 +26,15 @@ model Parwa {
   isi       String   @db.LongText
   isi_id    String   @db.LongText                 
   createdAt DateTime @default(now())              
+  status    String   @default("pending")
+  userId    Int?
 
   // [TAMBAHAN] Relasi ke tabel Version
   versionId Int      @default(1)
   version   Version  @relation(fields: [versionId], references: [id])
+  
+  // Relasi ke tabel User
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
 }
 
 model User {
@@ -43,6 +48,7 @@ model User {
   createdAt DateTime @default(now())    
 
   conversations Conversation[]
+  parwas        Parwa[]
 }
 
 model Conversation {

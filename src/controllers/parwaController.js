@@ -1,5 +1,6 @@
 const { PrismaClient } = require("@prisma/client");
 const prisma = new PrismaClient();
+const { translateText } = require("../utils/translator");
 
 // ✅ GET all Parwa (dengan pagination)
 exports.getAllParwa = async (req, res) => {
@@ -135,13 +136,9 @@ exports.searchParwa = async (req, res) => {
   }
 };
 
-// ✅ CREATE Parwa (Admin only)
+// ✅ CREATE Parwa (Admin and Authenticated Users)
 exports.createParwa = async (req, res) => {
   try {
-    if (req.user.role !== "admin") {
-      return res.status(403).json({ message: "Akses ditolak: hanya admin" });
-    }
-
     const { book, sub_parva, section, judul, url, isi, isi_id, versionId, versionName } = req.body;
 
     let targetVersionId = versionId ? parseInt(versionId) : null;
@@ -185,6 +182,28 @@ exports.createParwa = async (req, res) => {
       targetVersionId = firstVersion ? firstVersion.id : 1;
     }
 
+    let finalIsi = isi || "-";
+    let finalIsiId = isi_id || "-";
+
+    // Auto-translation logic:
+    if (finalIsiId && finalIsiId !== "-" && (!finalIsi || finalIsi === "-")) {
+      console.log("Auto-translating ID to EN...");
+      finalIsi = await translateText(finalIsiId, "id", "en");
+    } else if (finalIsi && finalIsi !== "-" && (!finalIsiId || finalIsiId === "-")) {
+      console.log("Auto-translating EN to ID...");
+      finalIsiId = await translateText(finalIsi, "en", "id");
+    }
+
+    // Determine status
+    let finalStatus = req.body.status || "pending";
+    if (req.user.role === "user") {
+      finalStatus = "pending";
+    } else if (req.user.role === "admin" || req.user.role === "narasumber") {
+      finalStatus = req.body.status || "approved";
+    }
+
+    const finalUserId = req.user ? req.user.id : null;
+
     const newParwa = await prisma.parwa.create({
       data: { 
         book, 
@@ -192,8 +211,10 @@ exports.createParwa = async (req, res) => {
         section, 
         judul, 
         url, 
-        isi, 
-        isi_id,
+        isi: finalIsi, 
+        isi_id: finalIsiId,
+        status: finalStatus,
+        userId: finalUserId,
         versionId: targetVersionId
       },
     });
@@ -208,19 +229,20 @@ exports.createParwa = async (req, res) => {
   }
 };
 
-// ✅ UPDATE Parwa (Admin only)
+// ✅ UPDATE Parwa (Admin and Owners)
 exports.updateParwa = async (req, res) => {
   try {
-    if (req.user.role !== "admin") {
-      return res.status(403).json({ message: "Akses ditolak: hanya admin" });
-    }
-
     const id = parseInt(req.params.id);
     const { book, sub_parva, section, judul, url, isi, isi_id, versionId, versionName } = req.body;
 
     const parwa = await prisma.parwa.findUnique({ where: { id } });
     if (!parwa)
       return res.status(404).json({ message: "Parwa tidak ditemukan" });
+
+    // Validate ownership: only admin or owner can update
+    if (req.user.role !== "admin" && parwa.userId !== req.user.id) {
+      return res.status(403).json({ message: "Akses ditolak: Anda tidak memiliki hak untuk mengubah cerita ini" });
+    }
 
     let targetVersionId = versionId ? parseInt(versionId) : parwa.versionId;
 
@@ -255,6 +277,24 @@ exports.updateParwa = async (req, res) => {
       }
     }
 
+    let finalIsi = isi !== undefined ? isi : parwa.isi;
+    let finalIsiId = isi_id !== undefined ? isi_id : parwa.isi_id;
+
+    // Auto-translation logic on update:
+    if (isi_id !== undefined && isi_id !== "-" && (isi === undefined || isi === "-")) {
+      console.log("Auto-translating ID to EN on update...");
+      finalIsi = await translateText(isi_id, "id", "en");
+    } else if (isi !== undefined && isi !== "-" && (isi_id === undefined || isi_id === "-")) {
+      console.log("Auto-translating EN to ID on update...");
+      finalIsiId = await translateText(isi, "en", "id");
+    }
+
+    // Determine status
+    let finalStatus = req.body.status !== undefined ? req.body.status : parwa.status;
+    if (req.user.role === "user") {
+      finalStatus = "pending";
+    }
+
     const updated = await prisma.parwa.update({
       where: { id },
       data: { 
@@ -263,8 +303,9 @@ exports.updateParwa = async (req, res) => {
         section, 
         judul, 
         url, 
-        isi, 
-        isi_id,
+        isi: finalIsi, 
+        isi_id: finalIsiId,
+        status: finalStatus,
         versionId: targetVersionId
       },
     });
@@ -279,7 +320,7 @@ exports.updateParwa = async (req, res) => {
   }
 };
 
-// ✅ DELETE Parwa (Admin and Authenticated Users)
+// ✅ DELETE Parwa (Admin and Owners)
 exports.deleteParwa = async (req, res) => {
   try {
     const id = parseInt(req.params.id);
@@ -287,9 +328,42 @@ exports.deleteParwa = async (req, res) => {
     if (!parwa)
       return res.status(404).json({ message: "Parwa tidak ditemukan" });
 
+    // Validate ownership: only admin or owner can delete
+    if (req.user.role !== "admin" && parwa.userId !== req.user.id) {
+      return res.status(403).json({ message: "Akses ditolak: Anda tidak memiliki hak untuk menghapus cerita ini" });
+    }
+
     await prisma.parwa.delete({ where: { id } });
 
     res.json({ message: "Parwa berhasil dihapus" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+// ✅ GET User Uploads
+exports.getUserUploads = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const items = await prisma.parwa.findMany({
+      where: { userId },
+      orderBy: { createdAt: "desc" },
+      select: {
+        id: true,
+        book: true,
+        sub_parva: true,
+        section: true,
+        judul: true,
+        url: true,
+        isi: true,
+        isi_id: true,
+        status: true,
+        createdAt: true,
+      },
+    });
+
+    res.json({ total: items.length, items });
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Server error" });

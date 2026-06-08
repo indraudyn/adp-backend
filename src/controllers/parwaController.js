@@ -374,6 +374,48 @@ exports.getUserUploads = async (req, res) => {
   }
 };
 
+// ✅ GET Admin Uploads
+exports.getAdminUploads = async (req, res) => {
+  try {
+    if (req.user.role !== "admin" && req.user.role !== "narasumber") {
+      return res.status(403).json({ message: "Akses ditolak" });
+    }
+
+    const filter = {
+      NOT: { userId: null }
+    };
+
+    const items = await prisma.parwa.findMany({
+      where: filter,
+      orderBy: { createdAt: "desc" },
+      select: {
+        id: true,
+        book: true,
+        sub_parva: true,
+        section: true,
+        judul: true,
+        url: true,
+        isi: true,
+        isi_id: true,
+        status: true,
+        createdAt: true,
+        userId: true,
+        user: {
+          select: {
+            name: true,
+            email: true,
+          }
+        }
+      },
+    });
+
+    res.json({ total: items.length, items });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
 // ✅ [UPDATE] GET Sections by Book & Version
 exports.getSectionsByBook = async (req, res) => {
   try {

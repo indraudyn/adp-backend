@@ -23,7 +23,7 @@ exports.register = async (req, res) => {
 
     const user = await prisma.user.create({
       data: { name, email, password: hashedPassword },
-      select: { id: true, name: true, email: true, createdAt: true },
+      select: { id: true, name: true, email: true, role: true, createdAt: true },
     });
 
     res.status(201).json({ message: "Registrasi berhasil", user });
@@ -78,7 +78,7 @@ exports.login = async (req, res) => {
     res.json({
       message: "Login berhasil",
       token,
-      user: { id: user.id, name: user.name, email: user.email },
+      user: { id: user.id, name: user.name, email: user.email, role: user.role },
     });
   } catch (error) {
     console.error("❌ [ERROR DI LOGIN]:", error);
